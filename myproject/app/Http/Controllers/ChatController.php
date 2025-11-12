@@ -10,24 +10,36 @@ use Illuminate\Support\Str;
 
 class ChatController extends Controller
 {
+
+	 // create chat with title from text
 	public function store(Request $request)
-	{
-		$chat = Chat::create(['title' => '']);
+{
+    $validated = $request->validate([
+        'text' => 'required|string|max:1000',
+    ]);
 
-		return response()->json([
-			'message' => 'Chat created',
-			'chat' => [
-				'id' => $chat->id,
-				'title' => $chat->title,
-				'date' => $chat->created_at?->toISOString(),
-			],
-		], 201);
-	}
+    $title = Str::words($validated['text'], 5);
 
+    $chat = Chat::create([
+        'title' => $title,
+    ]);
+
+    return response()->json([
+        'message' => 'Chat created',
+        'chat' => [
+            'id' => $chat->id,
+            'title' => $chat->title,
+            'date' => $chat->created_at?->toISOString(),
+        ],
+    ], 201);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+	
+// get all chats order by created_at
 	public function index(Request $request)
 	{
-		$chats = Chat::orderByDesc('created_at')
-			->get(['id', 'title', 'created_at'])
+		$chats = Chat::orderByDesc('created_at')->get(['id', 'title', 'created_at'])
 			->map(function ($chat) {
 				return [
 					'id' => $chat->id,
@@ -41,10 +53,13 @@ class ChatController extends Controller
 		]);
 	}
 
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+// get all messages of a chat order by created_at
 	public function listMessages(Chat $chat)
 	{
 		$messages = $chat->messages()
-			->orderBy('created_at')
+		    ->orderBy('created_at')
 			->get(['id', 'role', 'content', 'image_path', 'created_at'])
 			->map(function ($message) {
 				return [
@@ -65,16 +80,19 @@ class ChatController extends Controller
 		]);
 	}
 
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+// add message to chat
 	public function addMessage(Request $request, Chat $chat)
 	{
 		$validated = $request->validate([
 			'role' => ['required', 'string', 'in:user,assistant,system'],
 			'content' => ['sometimes', 'string'],
-			'image' => ['sometimes'], // Can be multipart file or JSON object
-			'image.base64' => ['sometimes', 'string'], // when JSON object passed { image: { base64: "..."} }
+			'image' => ['sometimes'], 
+			'image.base64' => ['sometimes', 'string'], 
 			'image.filename' => ['sometimes', 'string', 'max:255'],
-			// multipart file still supported on key "image"
-			'image' => ['sometimes'], // keep generic to allow file or object
+			'image' => ['sometimes'], 
 			'title' => ['sometimes', 'string', 'max:255'],
 		]);
 
