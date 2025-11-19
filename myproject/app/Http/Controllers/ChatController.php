@@ -10,36 +10,38 @@ use Illuminate\Support\Str;
 
 class ChatController extends Controller
 {
-
 	 // create chat with title from text
 	public function store(Request $request)
-{
-    $validated = $request->validate([
-        'text' => 'required|string|max:1000',
-    ]);
+	{
+		$validated = $request->validate([
+			'text' => 'required|string|max:1000',
+		]);
 
-    $title = Str::words($validated['text'], 5);
+		$title = Str::words($validated['text'], 5);
 
-    $chat = Chat::create([
-        'title' => $title,
-    ]);
+		$chat = Chat::create([
+			'title' => $title,
+			'user_id' => $request->user()->id,
+		]);
 
-    return response()->json([
-        'message' => 'Chat created',
-        'chat' => [
-            'id' => $chat->id,
-            'title' => $chat->title,
-            'date' => $chat->created_at?->toISOString(),
-        ],
-    ], 201);
-}
+		return response()->json([
+			'message' => 'Chat created',
+			'chat' => [
+				'id' => $chat->id,
+				'title' => $chat->title,
+				'date' => $chat->created_at?->toISOString(),
+			],
+		], 201);
+	}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 	
 // get all chats order by created_at
 	public function index(Request $request)
 	{
-		$chats = Chat::orderByDesc('created_at')->get(['id', 'title', 'created_at'])
+		$chats = Chat::where('user_id', $request->user()->id)
+			->orderByDesc('created_at')
+			->get(['id', 'title', 'created_at'])
 			->map(function ($chat) {
 				return [
 					'id' => $chat->id,
@@ -56,8 +58,14 @@ class ChatController extends Controller
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // get all messages of a chat order by created_at
-	public function listMessages(Chat $chat)
+	public function listMessages(Request $request, Chat $chat)
 	{
+		if ($chat->user_id !== $request->user()->id) {
+			return response()->json([
+				'message' => 'Unauthorized. This chat does not belong to you.',
+			], 403);
+		}
+
 		$messages = $chat->messages()
 		    ->orderBy('created_at')
 			->get(['id', 'role', 'content', 'image_path', 'created_at'])
@@ -86,6 +94,12 @@ class ChatController extends Controller
 // add message to chat
 	public function addMessage(Request $request, Chat $chat)
 	{
+		if ($chat->user_id !== $request->user()->id) {
+			return response()->json([
+				'message' => 'Unauthorized. This chat does not belong to you.',
+			], 403);
+		}
+
 		$validated = $request->validate([
 			'role' => ['required', 'string', 'in:user,assistant,system'],
 			'content' => ['sometimes', 'string'],
@@ -146,7 +160,7 @@ class ChatController extends Controller
 			'image_path' => $imagePath,
 		]);
 
-		// If this is the first message and the chat has no title yet, set it
+		
 		if (empty($chat->title)) {
 			$chat->title = isset($validated['title']) && $validated['title'] !== ''
 				? $validated['title']

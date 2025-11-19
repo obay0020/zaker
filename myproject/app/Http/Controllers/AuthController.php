@@ -20,7 +20,7 @@ class AuthController extends Controller
 		$user = User::create([
 			'name' => $validated['name'],
 			'email' => $validated['email'],
-			'password' => $validated['password'],
+			'password' => Hash::make($validated['password']),
 		]);
 
 		return response()->json([
@@ -48,6 +48,8 @@ class AuthController extends Controller
 			]);
 		}
 
+		$token = $user->createToken('auth-token')->plainTextToken;
+
 		return response()->json([
 			'message' => 'Login successful',
 			'user' => [
@@ -55,6 +57,7 @@ class AuthController extends Controller
 				'name' => $user->name,
 				'email' => $user->email,
 			],
+			'token' => $token,
 		]);
 	}
 }
